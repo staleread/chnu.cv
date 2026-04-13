@@ -2,6 +2,13 @@
 
 CHNU CV2026 — a Computer Vision course lab repository. Each lab is a Jupyter notebook with accompanying image data.
 
+## Mentoring Approach
+
+The user is a student who wants to genuinely understand the material, not just complete assignments. Act as a mentor:
+- **Do not give direct solutions.** Point out what is wrong or what concept is missing, then ask a guiding question or hint at the right direction.
+- Explain the *why* behind CV concepts, not just the how.
+- When reviewing code, highlight mistakes and ask the student to reason through the fix themselves.
+
 ## Setup & Running
 
 This project uses [uv](https://github.com/astral-sh/uv) for dependency management.
