@@ -199,3 +199,76 @@ should not require changes as camera resolution changes as those are only used
 in gradient computation (`k` in `R = det(M) - k * trace(M)^2`) and Harris
 corner detection results filtering (the threshold, that discards all correction
 values below `e^(-7)`).
+
+### SIFT demo (extra task) 
+
+SIFT is a powerful feature detector invariant to scale. 
+
+```{python}
+img = cv2.imread('./data/house-1.jpg')
+img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+sift = cv2.SIFT_create(contrastThreshold=0.1)
+kp = sift.detect(gray, None)
+img = cv2.drawKeypoints(img, kp, img, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+
+plt.imshow(img)
+```
+
+```{python}
+img = cv2.imread('./data/house-1.jpg')
+img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+sift = cv2.SIFT_create(contrastThreshold=0.1)
+kp = sift.detect(gray, None)
+img = cv2.drawKeypoints(img, kp, img, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+
+plt.subplot(121), plt.imshow(img)
+
+img = cv2.imread('./data/house-2.jpg')
+img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+sift = cv2.SIFT_create(contrastThreshold=0.1)
+kp = sift.detect(gray, None)
+img = cv2.drawKeypoints(img, kp, img, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+
+plt.subplot(122), plt.imshow(img)
+```
+
+The keypoint set seems to be consistent across the images. I tried to restrict
+number of strongest keypoints with `nfeatures` param of `cv2.SIFT_create()`,
+but with the value below 3000 most of the points are on the tree branches, so
+left the call signature as is :)
+
+By setting `contrastThreshold` to 0.1 (default is 0.04) I did manage to reduce
+the "noisy" keypoints on the roof.
+
+Intesestinly, resizing the image to 30% of the original did result in more
+accurate keypoint selection
+
+```{python}
+img = cv2.imread('./data/house-1.jpg')
+img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+img = cv2.resize(img, (0, 0), fx=0.3, fy=0.3)
+
+gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+sift = cv2.SIFT_create(contrastThreshold=0.1)
+kp = sift.detect(gray, None)
+img = cv2.drawKeypoints(img, kp, img, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+
+plt.subplot(121), plt.imshow(img)
+
+img = cv2.imread('./data/house-2.jpg')
+img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+img = cv2.resize(img, (0, 0), fx=0.3, fy=0.3)
+
+gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+sift = cv2.SIFT_create(contrastThreshold=0.1)
+kp = sift.detect(gray, None)
+img = cv2.drawKeypoints(img, kp, img, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+
+plt.subplot(122), plt.imshow(img)
+```
