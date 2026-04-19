@@ -1,7 +1,7 @@
 import marimo
 
 __generated_with = "0.23.1"
-app = marimo.App(width="medium")
+app = marimo.App(width="medium", auto_download=["ipynb"])
 
 with app.setup:
     import marimo as mo
