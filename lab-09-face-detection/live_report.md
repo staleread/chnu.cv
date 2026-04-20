@@ -23,7 +23,7 @@ Hat with eyebrows hidden — **not detected**. The brow ridge is a strong gradie
 Hat with eyebrows visible — detected normally. The hat brim alone does not interfere as long as the brow gradient is present.
 <img width="1280" height="576" alt="image" src="https://github.com/user-attachments/assets/7903ac75-64b2-4e2d-9b3d-59379631d3f5" />
 
-Swimming goggles (even lighting) — detected. Occlusion of the eyes alone is not enough to fool the detector when the rest of the gradient structure is intact.
+Swimming goggles (even lighting) — detected.
 <img width="1280" height="576" alt="image" src="https://github.com/user-attachments/assets/11cdf712-675a-4685-b9d3-42c0bcac7645" />
 
 Swimming goggles facing the window — **not detected**. The goggle lenses reflect sunlight from the window, washing out the gradient structure around the eye region. Detection only succeeded after turning the face slightly away from the window so the front of the face was no longer in the reflection.
