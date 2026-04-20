@@ -26,31 +26,29 @@ Hat with eyebrows visible — detected normally. The hat brim alone does not int
 Swimming goggles (even lighting) — detected. Occlusion of the eyes alone is not enough to fool the detector when the rest of the gradient structure is intact.
 <img width="1280" height="576" alt="image" src="https://github.com/user-attachments/assets/11cdf712-675a-4685-b9d3-42c0bcac7645" />
 
-Swimming goggles with strong side lighting — **not detected**. The harsh side light creates bright and dark half-face regions that distort the expected HOG gradient pattern, breaking the match even though there is no additional occlusion.
+Swimming goggles facing the window — **not detected**. The goggle lenses reflect sunlight from the window, washing out the gradient structure around the eye region. Detection only succeeded after turning the face slightly away from the window so the front of the face was no longer in the reflection.
 <img width="1280" height="576" alt="image" src="https://github.com/user-attachments/assets/ac1936d0-ecb2-4c2c-ba5c-2ec495d0a116" />
 
 ---
 
 ## 1.5 metres from camera
 
-The face subtends fewer pixels but the detector still finds it reliably in all three conditions tested here.
+The face subtends fewer pixels but the detector still finds it reliably in all three conditions tested here. The hat was worn with eyebrows visible in both distance tests.
 
 Normal
 <img width="1280" height="576" alt="image" src="https://github.com/user-attachments/assets/815f9e80-79b6-421a-9639-fdfab72ee0ee" />
 
-Hat
+Hat (eyebrows visible)
 <img width="1280" height="576" alt="image" src="https://github.com/user-attachments/assets/e3734195-018e-46c4-b282-790f34aa37a9" />
 
 Goggles
 <img width="1280" height="576" alt="image" src="https://github.com/user-attachments/assets/573095a2-4205-42c9-9566-a43648754951" />
 
-At this distance the hat no longer causes a miss — the smaller face region likely activates a different scale window in the sliding-window search where the brim-to-brow proportion is less disruptive.
-
 ---
 
 ## 2–2.5 metres from camera
 
-All three conditions detected successfully at this distance too, including the hat that failed at close range.
+All three conditions detected successfully at this distance. As at 1.5 m, the hat was worn with eyebrows visible.
 
 Normal
 <img width="1280" height="576" alt="image" src="https://github.com/user-attachments/assets/bcc89c29-882f-4f7b-b44d-ba75500ecb8f" />
@@ -76,8 +74,6 @@ Goggles
 
 **Brow gradient is load-bearing.** The single most reliable way to defeat dlib's HOG+SVM detector at close range is to hide the eyebrows. The brow ridge produces a strong, consistent gradient edge that the frontal-face template depends on. Covering it causes a miss; keeping it visible restores detection even with a hat.
 
-**Lighting matters more than occlusion.** Goggles alone did not cause a miss — the detector adapted. But a single strong side light (no additional occlusion) was enough to break detection by skewing the gradient histogram away from the expected frontal pattern.
-
-**Counter-intuitive distance effect.** The hat that failed at close range was detected at 1.5 m and 2.5 m. At distance the face occupies fewer pixels and the brim-to-face ratio shrinks, so the same occlusion has proportionally less impact on the HOG descriptor.
+**Specular reflection is as disruptive as occlusion.** Goggles with no window reflection were detected fine — the eye occlusion alone did not break detection. But when the lenses reflected sunlight directly at the camera, the blown-out gradient around the eye region was enough to cause a miss. The fix was simply to angle the face away from the window.
 
 **Landmark quality degrades gracefully.** Even in borderline cases where a detection still fires, landmark points adapt to the actual face geometry — closed eyes during a blink are traced correctly, and goggles shift the eye-region points onto the goggle frame rather than hallucinating invisible eyes.
