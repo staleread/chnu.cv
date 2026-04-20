@@ -66,11 +66,13 @@ def _(load_image):
 def _():
     detector = dlib.get_frontal_face_detector()
     cascade = cv.CascadeClassifier('data/haarcascade_frontalface_default.xml')
-    return cascade, detector
+    predictor = dlib.shape_predictor('data/shape_predictor_68_face_landmarks.dat')
+    return cascade, detector, predictor
 
 
 @app.cell
-def _(cascade, detector, random_color):
+def _(detector, random_color):
+    # Utility for detecting faces using dblib
     def detect_dlib(img: Image, *, gray: bool = False, scale: float = 1.0, thickness: int = 3) -> tuple[np.ndarray, dict]:
         source = np.copy(img.gray if gray else img.rgb)
 
@@ -86,8 +88,14 @@ def _(cascade, detector, random_color):
         for rect in rects:
             cv.rectangle(source, (rect.left(), rect.top()), (rect.right(), rect.bottom()), random_color(), thickness)
 
-        return source, {'faces': len(rects), 'time': elapsed}
+        return source, {'rects': [(r.left(), r.top(), r.right(), r.bottom()) for r in rects], 'time': elapsed}
 
+    return (detect_dlib,)
+
+
+@app.cell
+def _(cascade, random_color):
+    # Utility for detecting faces using Voila-Jones
     def detect_vj(img: Image, *, gray: bool = False, scale: float = 1.0, thickness: int = 3) -> tuple[np.ndarray, dict]:
         source = np.copy(img.gray if gray else img.rgb)
 
@@ -103,9 +111,22 @@ def _(cascade, detector, random_color):
         for (x, y, w, h) in faces:
             cv.rectangle(source, (x, y), (x + w, y + h), random_color(), thickness)
 
-        return source, {'faces': len(faces), 'time': elapsed}
+        return source, {'rects': [(x, y, x + w, y + h) for (x, y, w, h) in faces], 'time': elapsed}
 
-    return detect_dlib, detect_vj
+    return (detect_vj,)
+
+
+@app.function
+# Landmark utils go here
+
+def plot_landmarks(vec):
+    plt.plot(vec[0:17,0], vec[0:17,1], 'g.-')       # Contour
+    plt.plot(vec[48:68,0], vec[48:68,1], 'g.-')     # Mouth
+    plt.plot(vec[17:22,0], vec[17:22,1], 'g.-')     # Right eyebrow
+    plt.plot(vec[22:27,0], vec[22:27,1], 'g.-')     # Left eyebrow
+    plt.plot(np.concatenate((vec[36:42,0], vec[36:37,0])), np.concatenate((vec[36:42,1], vec[36:37,1])), 'g.-')     # Left eye
+    plt.plot(np.concatenate((vec[42:48,0], vec[42:43,0])), np.concatenate((vec[42:48,1], vec[42:43,1])), 'g.-')     # Right eye
+    plt.plot(vec[27:36,0], vec[27:36,1], 'g.-')
 
 
 @app.cell
@@ -117,7 +138,7 @@ def _(images: dict[str, Image]):
     return gray_toggle, image_select, scale_slider, thickness_input
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(
     gray_toggle,
     image_select,
@@ -160,21 +181,75 @@ def _(
     _dlib_img, _dlib_m = detect_dlib(_img, gray=_gray, scale=_scale, thickness=_thickness)
     _vj_img, _vj_m = detect_vj(_img, gray=_gray, scale=_scale, thickness=_thickness)
 
+    # Combine, deduplicate, and sort left-to-right by top-left corner
+    detected_rects = sorted(dict.fromkeys(_dlib_m['rects'] + _vj_m['rects']), key=lambda r: (r[0], r[1]))
+
     _cmap = "gray" if _gray else None
     _fig, (_ax1, _ax2) = plt.subplots(1, 2, figsize=(14, 7))
 
     # Plot dlib result
     _ax1.imshow(_dlib_img, cmap=_cmap)
-    _ax1.set_title(f"dlib — {_dlib_m['faces']} faces  {_dlib_m['time']:.3f} s", fontsize=13)
+    _ax1.set_title(f"dlib — {len(_dlib_m['rects'])} faces  {_dlib_m['time']:.3f} s", fontsize=13)
     _ax1.axis('off')
 
     # Plot VJ result
     _ax2.imshow(_vj_img, cmap=_cmap)
-    _ax2.set_title(f"Viola-Jones — {_vj_m['faces']} faces  {_vj_m['time']:.3f} s", fontsize=13)
+    _ax2.set_title(f"Viola-Jones — {len(_vj_m['rects'])} faces  {_vj_m['time']:.3f} s", fontsize=13)
     _ax2.axis('off')
 
     plt.tight_layout()
     plt.show()
+    return (detected_rects,)
+
+
+@app.cell(hide_code=True)
+def _(detected_rects):
+    _options = {str(i): rect for i, rect in enumerate(detected_rects)}
+    rect_select = mo.ui.dropdown(
+        _options,
+        value="0" if _options else None,
+        label="Face rect",
+    )
+    rect_select
+    return (rect_select,)
+
+
+@app.cell(hide_code=True)
+def _(
+    gray_toggle,
+    image_select,
+    images: dict[str, Image],
+    predictor,
+    rect_select,
+    scale_slider,
+):
+    # Prepare the (possibly scaled) source in the selected color mode
+    _scale = scale_slider.value / 100.0
+    _gray = gray_toggle.value
+    _img = images[image_select.value]
+
+    _source = _img.gray if _gray else _img.rgb
+    if _scale != 1.0:
+        _source = cv.resize(_source, (0, 0), fx=_scale, fy=_scale)
+
+    # Crop to the selected rect, clamping coords to image bounds
+    _h, _w = _source.shape[:2]
+    _x1, _y1, _x2, _y2 = rect_select.value if rect_select.value else (0, 0, 0, 0)
+    _x1, _y1 = max(0, _x1), max(0, _y1)
+    _x2, _y2 = min(_w, _x2), min(_h, _y2)
+    _face = _source[_y1:_y2, _x1:_x2]
+
+    if _face.size == 0:
+        mo.md("No faces detected — nothing to show.")
+    else:
+        _shape = predictor(_face, dlib.rectangle(0, 0, _x2 - _x1, _y2 - _y1))
+        _landmarks = np.array([(p.x, p.y) for p in _shape.parts()])
+
+        plt.figure(figsize=(7, 7))
+        plt.imshow(_face, cmap="gray" if _gray else None)
+        plot_landmarks(_landmarks)
+        plt.axis('off')
+        plt.show()
     return
 
 
