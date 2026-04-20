@@ -181,8 +181,14 @@ def _(
     _dlib_img, _dlib_m = detect_dlib(_img, gray=_gray, scale=_scale, thickness=_thickness)
     _vj_img, _vj_m = detect_vj(_img, gray=_gray, scale=_scale, thickness=_thickness)
 
-    # Combine, deduplicate, and sort left-to-right by top-left corner
-    detected_rects = sorted(dict.fromkeys(_dlib_m['rects'] + _vj_m['rects']), key=lambda r: (r[0], r[1]))
+    # Combine and deduplicate; dlib rects sort before VJ-only rects by offsetting
+    # VJ-only x coordinates by image width, so dlib faces always come first
+    _w = _img.rgb.shape[1]
+    _dlib_set = set(_dlib_m['rects'])
+    detected_rects = sorted(
+        dict.fromkeys(_dlib_m['rects'] + _vj_m['rects']),
+        key=lambda r: (r[0] if r in _dlib_set else r[0] + _w, r[1]),
+    )
 
     _cmap = "gray" if _gray else None
     _fig, (_ax1, _ax2) = plt.subplots(1, 2, figsize=(14, 7))
