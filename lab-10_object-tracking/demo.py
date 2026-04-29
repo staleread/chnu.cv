@@ -7,9 +7,95 @@ with app.setup:
     import marimo as mo  # comment this if not using Marimo notebook editor
     import cv2
     import os
+    import json
     import tempfile
     import imageio
     import matplotlib.pyplot as plt
+
+
+@app.cell
+def _():
+    # Profile management
+    # The lab requires the analysis of different trackers on different
+    # scenarios like object scaling, background or lightning changes.
+    # In order to be make the setup persistent a JSON file is used as
+    # a storage. The state management of marimo makes the "profile" creation
+    # easy with possibly many setups for a single video by using a unique label
+
+    config_path = "config.json"
+
+    def load_profiles():
+        import os
+        import json
+
+        if not os.path.exists(config_path):
+            return {}
+        try:
+            with open(config_path, "r") as f:
+                return json.load(f)
+        except Exception:
+            pass
+
+    get_profiles, set_profiles = mo.state(load_profiles())
+    get_active_profile, set_active_profile = mo.state(None)
+    get_config_override, set_config_override = mo.state({})
+    return (
+        config_path,
+        get_active_profile,
+        get_config_override,
+        get_profiles,
+        set_active_profile,
+        set_config_override,
+        set_profiles,
+    )
+
+
+@app.cell(hide_code=True)
+def _():
+    mo.md(r"""
+    ### Profile Management
+
+    Save and load your tracking configurations:
+    - **Select Profile**: Choose an existing configuration to instantly restore all settings.
+    - **Profile Label**: Add a custom tag to your current setup before saving.
+    - **Save Profile**: Click to store your current video, range, and ROI settings.
+
+    *Note: Manually changing any setting will switch the profile back to "Custom".*
+    """)
+    return
+
+
+@app.cell
+def _(
+    get_active_profile,
+    get_profiles,
+    set_active_profile,
+    set_config_override,
+):
+    def on_profile_select(v):
+        if v and v != "Custom":
+            set_active_profile(v)
+            set_config_override(get_profiles()[v])
+        else:
+            set_active_profile(None)
+
+    _options = ["Custom"] + list(get_profiles().keys())
+    _current_val = get_active_profile() or "Custom"
+
+    if _current_val not in _options:
+        _current_val = "Custom"
+
+    profile_dropdown = mo.ui.dropdown(
+        options=_options,
+        value=_current_val,
+        label="Select Profile",
+        on_change=on_profile_select,
+    )
+
+    profile_label = mo.ui.text(label="Profile Label")
+
+    mo.hstack([profile_dropdown, profile_label], justify="start")
+    return (profile_label,)
 
 
 @app.function
@@ -36,16 +122,21 @@ def _():
 
 
 @app.cell
-def _():
+def _(get_config_override, set_active_profile):
     # Get video file paths
     _video_files = [
         f"data/{file}" for file in os.listdir("data") if file.endswith((".mp4", ".gif"))
     ]
 
+    _default_video = get_config_override().get("video")
+    if _default_video not in _video_files:
+        _default_video = _video_files[0] if _video_files else None
+
     video_select = mo.ui.dropdown(
         options=_video_files,
-        value=_video_files[0] if _video_files else None,
+        value=_default_video,
         label="Select Video",
+        on_change=lambda _: set_active_profile(None),
     )
 
     video_select
@@ -63,18 +154,33 @@ def _(video_select):
 
 
 @app.cell
-def _(total_frames: int):
+def _(get_config_override, set_active_profile, total_frames: int):
     tracker_select = mo.ui.dropdown(
-        options=["MIL", "TLD"], value="MIL", label="Select Tracker"
+        options=["MIL", "TLD"],
+        value=get_config_override().get("tracker", "MIL"),
+        label="Select Tracker",
+        on_change=lambda _: set_active_profile(None),
     )
+
+    _default_range = get_config_override().get(
+        "frame_range", [0, min(150, total_frames - 1)]
+    )
+    # Validate range
+    if not (
+        isinstance(_default_range, list)
+        and len(_default_range) == 2
+        and _default_range[0] < total_frames
+    ):
+        _default_range = [0, min(150, total_frames - 1)]
 
     frame_range = mo.ui.range_slider(
         start=0,
         stop=max(0, total_frames - 1),
         step=1,
-        value=[0, min(150, total_frames - 1)],
+        value=_default_range,
         label="Frame Range",
         full_width=True,
+        on_change=lambda _: set_active_profile(None),
     )
 
     mo.vstack([tracker_select, frame_range])
@@ -105,21 +211,49 @@ def _():
 
 
 @app.cell
-def _(first_frame):
+def _(first_frame, get_config_override, set_active_profile):
     h, w = first_frame.shape[:2]
+    _roi = get_config_override().get("roi", {})
+
+    def on_roi_change(_):
+        set_active_profile(None)
 
     # Sliders for ROI selection
     x_slider = mo.ui.slider(
-        start=0, stop=w - 1, step=1, value=w // 4, label="X", full_width=True
+        start=0,
+        stop=w - 1,
+        step=1,
+        value=_roi.get("x", w // 4),
+        label="X",
+        full_width=True,
+        on_change=on_roi_change,
     )
     y_slider = mo.ui.slider(
-        start=0, stop=h - 1, step=1, value=h // 4, label="Y", full_width=True
+        start=0,
+        stop=h - 1,
+        step=1,
+        value=_roi.get("y", h // 4),
+        label="Y",
+        full_width=True,
+        on_change=on_roi_change,
     )
     w_slider = mo.ui.slider(
-        start=1, stop=w, step=1, value=w // 2, label="Width", full_width=True
+        start=1,
+        stop=w,
+        step=1,
+        value=_roi.get("w", w // 2),
+        label="Width",
+        full_width=True,
+        on_change=on_roi_change,
     )
     h_slider = mo.ui.slider(
-        start=1, stop=h, step=1, value=h // 2, label="Height", full_width=True
+        start=1,
+        stop=h,
+        step=1,
+        value=_roi.get("h", h // 2),
+        label="Height",
+        full_width=True,
+        on_change=on_roi_change,
     )
 
     mo.vstack([x_slider, y_slider, w_slider, h_slider])
@@ -149,12 +283,55 @@ def _(bh, bw, first_frame, x, y):
 
 
 @app.cell
-def _():
+def _(get_active_profile):
     # UI button for starting tracking
     run_button = mo.ui.run_button(label="Start Tracking")
+    save_button = mo.ui.run_button(
+        label="Save Profile", disabled=(get_active_profile() is not None)
+    )
 
-    run_button
-    return (run_button,)
+    mo.hstack([run_button, save_button])
+    return run_button, save_button
+
+
+@app.cell
+def _(
+    bh,
+    bw,
+    config_path,
+    frame_range,
+    get_profiles,
+    profile_label,
+    save_button,
+    set_active_profile,
+    set_profiles,
+    tracker_select,
+    video_select,
+    x,
+    y,
+):
+    if save_button.value:
+        # Construct profile name
+        _base = os.path.basename(video_select.value).replace(".", "_")
+        _label = profile_label.value.strip()
+        _name = f"{_base}_{_label}" if _label else _base
+
+        _new_profile = {
+            "video": video_select.value,
+            "tracker": tracker_select.value,
+            "frame_range": frame_range.value,
+            "roi": {"x": x, "y": y, "w": bw, "h": bh},
+        }
+
+        _profiles = get_profiles()
+        _profiles[_name] = _new_profile
+
+        with open(config_path, "w") as _f:
+            json.dump(_profiles, _f, indent=4)
+
+        set_profiles(_profiles)
+        set_active_profile(_name)
+    return
 
 
 @app.cell

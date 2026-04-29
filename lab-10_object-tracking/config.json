@@ -1,0 +1,30 @@
+{
+    "bus_gif": {
+        "video": "data/bus.gif",
+        "tracker": "MIL",
+        "frame_range": [
+            33,
+            63
+        ],
+        "roi": {
+            "x": 133,
+            "y": 95,
+            "w": 52,
+            "h": 54
+        }
+    },
+    "drifting_mp4_wheel": {
+        "video": "data/drifting.mp4",
+        "tracker": "MIL",
+        "frame_range": [
+            0,
+            20
+        ],
+        "roi": {
+            "x": 409,
+            "y": 219,
+            "w": 49,
+            "h": 47
+        }
+    }
+}
