@@ -157,20 +157,25 @@ def _(get_active_profile, set_active_profile, total_frames: int):
         on_change=lambda v: set_active_profile({**get_active_profile(), "name": "Custom", "tracker": v}),
     )
 
-    _default_range = _active.get(
-        "frame_range", [0, min(150, total_frames - 1)]
-    )
-    # Validate range
-    if not (
-        isinstance(_default_range, list)
-        and len(_default_range) == 2
-        and _default_range[0] < total_frames
+    _stop = max(0, total_frames - 1)
+    _default_range = _active.get("frame_range", [0, min(150, _stop)])
+
+    # Validate and clamp range
+    if (
+        not isinstance(_default_range, list)
+        or len(_default_range) != 2
+        or not all(isinstance(x, (int, float)) for x in _default_range)
     ):
-        _default_range = [0, min(150, total_frames - 1)]
+        _default_range = [0, min(150, _stop)]
+    else:
+        # Ensure start <= end and both are within [0, _stop]
+        _r_start = max(0, min(_default_range[0], _stop))
+        _r_end = max(_r_start, min(_default_range[1], _stop))
+        _default_range = [_r_start, _r_end]
 
     frame_range = mo.ui.range_slider(
         start=0,
-        stop=max(0, total_frames - 1),
+        stop=_stop,
         step=1,
         value=_default_range,
         label="Frame Range",

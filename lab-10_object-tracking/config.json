@@ -26,5 +26,19 @@
             "w": 49,
             "h": 47
         }
+    },
+    "fish_gif_body": {
+        "video": "data/fish.gif",
+        "tracker": "MIL",
+        "frame_range": [
+            15,
+            38
+        ],
+        "roi": {
+            "x": 96,
+            "y": 91,
+            "w": 42,
+            "h": 100
+        }
     }
 }
